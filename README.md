@@ -1,27 +1,70 @@
-# مشروع StudentVote
 
-مشروع منصة تصويت للطلاب لاختيار رئيس اتحاد الطلاب في الكلية باستخدام Solidity و Foundry و React مع Wagmi.
+# StudentVote - Arabic Blockchain Developer Bootcamp Graduation Project
 
-## كيفية التشغيل
+## About this project
 
-1. إعداد العقد ونشره على شبكة Sepolia Scroll:
-- استعمل Foundry: `forge script scripts/deploy.js --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --broadcast`
-- حفظ عنوان العقد الذكي.
+StudentVote هو تطبيق تصويت مبني على البلوكتشين مخصص للجامعات، يهدف إلى تسهيل انتخاب رئيس اتحاد الطلاب بطريقة آمنة وشفافة.  
+الفكرة هي أن كل طالب يقدر يصوت مرة واحدة فقط، ويتم التحقق من هويته عبر البريد الإلكتروني، ويتم تخزين النتائج على شبكة Scroll Sepolia بطريقة لا مركزية.
 
-2. إعداد الواجهة الأمامية:
-- الدخول إلى مجلد frontend
-- تشغيل `npm install` لتثبيت الحزم
-- إنشاء ملف `.env` يحتوي على المفاتيح
-- تشغيل `npm run dev` لتشغيل الواجهة
+---
 
-3. في `frontend/src/components/Voting.jsx` قم بتعديل `contractAddress` ليكون عنوان العقد المنشور.
+## Directory Structure
 
-## تفاصيل المشروع
+- `contracts/`  
+  يحتوي على العقد الذكي المكتوب بلغة Solidity والمسؤول عن منطق التصويت.
+  
+- `script/`  
+  سكريبتات النشر والتهيئة الخاصة بالعقد الذكي باستخدام Foundry.
+  
+- `test/`  
+  يحتوي على اختبارات الوحدة (Unit Tests) للعقد الذكي، مكتوبة بلغة Solidity.
 
-- عقد ذكي بسيط للتصويت
-- يضمن تصويت مرة واحدة لكل محفظة
-- يعرض المرشحين والأصوات بشكل مباشر
+- `frontend/`  
+  مشروع React للواجهة الأمامية مع wagmi للاتصال بالعقد الذكي وربط محفظة MetaMask.
 
-## المؤلف
+- `.env`  
+  ملف البيئة الخاص بإعداد مفاتيح API ومفتاح المحفظة الخاصة للنشر.
 
-Hazem Mohamed
+---
+
+## Design Patterns
+
+في المشروع استخدمت التصميمات التالية:
+
+- **Modifier for Access Control**  
+  للتحقق من صلاحيات التصويت بحيث يضمن كل طالب يصوت مرة واحدة فقط.
+
+- **Events Emission**  
+  أطلقت أحداث عند كل تصويت لتحديث الواجهة تلقائياً عند استلام المعاملة.
+
+---
+
+## Security Measures
+
+- **Reentrancy Guard**  
+  لمنع الهجمات المعروفة كـ Reentrancy attack خلال عملية التصويت.
+
+- **Input Validation**  
+  التحقق من صحة بيانات المدخلات وعدم السماح بتمرير قيم خاطئة أو مكررة.
+
+---
+
+## Important Links & Addresses
+
+- **Contract Address (Scroll Sepolia):**  
+  0xAFA7cC7947A0d5d883c3A50DF547185158d23A39
+
+- **Verified Contract on ScrollScan:**  
+  https://sepolia.scrollscan.com/address/0xAFA7cC7947A0d5d883c3A50DF547185158d23A39
+
+- **Frontend Hosting:**  
+  [رابط الواجهة الأمامية - سيتم التحديث لاحقاً]
+
+---
+
+## How to Run Tests
+
+لتشغيل اختبارات العقد الذكي:
+
+```bash
+forge test
