@@ -1,137 +1,99 @@
-import React, { useEffect, useState } from "react";
-import { useAccount, useContract, useProvider, useSigner } from "wagmi";
-import { ethers } from "ethers";
+"use client";
 
-const contractAddress = "YOUR_DEPLOYED_CONTRACT_ADDRESS";
-const contractAbi = [
-  "function candidatesCount() view returns (uint256)",
-  "function candidates(uint256) view returns (uint256, string memory, string memory, uint256)",
-  "function vote(uint256)",
-  "function hasVoted(address) view returns (bool)",
-  "event Voted(address indexed voter, uint256 candidateId)",
-];
+import { useState, useEffect } from "react";
+import { useAccount, useContractRead, useContractWrite, useWaitForTransaction } from "wagmi";
+import { parseEther } from "viem";
+import { contractAddress } from "../constants";
+import abi from "../abi/StudentVote.json";
 
 export default function Voting() {
   const { address, isConnected } = useAccount();
-  const provider = useProvider();
-  const { data: signer } = useSigner();
+  const [selectedCandidate, setSelectedCandidate] = useState("");
+  const [hasVoted, setHasVoted] = useState(false);
 
-  const contract = useContract({
+  // Get current results
+  const { data: results, refetch } = useContractRead({
     address: contractAddress,
-    abi: contractAbi,
-    signerOrProvider: signer || provider,
+    abi,
+    functionName: "getResults",
+    watch: true,
   });
 
-  const [candidates, setCandidates] = useState([]);
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
-  const [hasVoted, setHasVoted] = useState(false);
-  const [isVoting, setIsVoting] = useState(false);
-  const [txHash, setTxHash] = useState(null);
+  // Check if user already voted
+  const { data: voted } = useContractRead({
+    address: contractAddress,
+    abi,
+    functionName: "hasVoted",
+    args: [address],
+    enabled: !!address,
+  });
 
   useEffect(() => {
-    if (!contract) return;
+    if (voted) setHasVoted(true);
+  }, [voted]);
 
-    async function fetchCandidates() {
-      const count = await contract.candidatesCount();
-      const candidatesList = [];
-      for (let i = 1; i <= count; i++) {
-        const candidate = await contract.candidates(i);
-        candidatesList.push({
-          id: candidate[0].toNumber(),
-          name: candidate[1],
-          description: candidate[2],
-          votes: candidate[3].toNumber(),
-        });
-      }
-      setCandidates(candidatesList);
-    }
+  // Write vote
+  const { data: writeData, write } = useContractWrite({
+    address: contractAddress,
+    abi,
+    functionName: "vote",
+  });
 
-    async function checkVote() {
-      if (!address) return;
-      const voted = await contract.hasVoted(address);
-      setHasVoted(voted);
-    }
-
-    fetchCandidates();
-    checkVote();
-  }, [contract, address]);
-
-  async function handleVote() {
-    if (!selectedCandidate) {
-      alert("اختر مرشحًا من فضلك");
-      return;
-    }
-    setIsVoting(true);
-    try {
-      const tx = await contract.vote(selectedCandidate);
-      setTxHash(tx.hash);
-      await tx.wait();
-      // Refresh data
-      const count = await contract.candidatesCount();
-      const candidatesList = [];
-      for (let i = 1; i <= count; i++) {
-        const candidate = await contract.candidates(i);
-        candidatesList.push({
-          id: candidate[0].toNumber(),
-          name: candidate[1],
-          description: candidate[2],
-          votes: candidate[3].toNumber(),
-        });
-      }
-      setCandidates(candidatesList);
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransaction({
+    hash: writeData?.hash,
+    onSuccess() {
+      refetch();
       setHasVoted(true);
-    } catch (error) {
-      alert(error.message);
-    }
-    setIsVoting(false);
-  }
+    },
+  });
+
+  const handleVote = () => {
+    if (!selectedCandidate) return alert("اختر مرشحًا أولاً");
+    write({ args: [parseInt(selectedCandidate)] });
+  };
+
+  const candidateNames = ["محمد أحمد", "سارة محمود", "علي خالد"];
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>انتخابات رئيس اتحاد الطلاب</h2>
-      {isConnected ? (
-        <>
-          {hasVoted ? (
-            <p>لقد قمت بالتصويت. شكراً لمشاركتك!</p>
-          ) : (
-            <>
-              <h3>المرشحون:</h3>
-              <ul>
-                {candidates.map((c) => (
-                  <li key={c.id}>
-                    <label>
-                      <input
-                        type="radio"
-                        name="candidate"
-                        value={c.id}
-                        onChange={() => setSelectedCandidate(c.id)}
-                      />
-                      <strong>{c.name}</strong>: {c.description} (عدد الأصوات:{" "}
-                      {c.votes})
-                    </label>
-                  </li>
-                ))}
-              </ul>
-              <button onClick={handleVote} disabled={isVoting}>
-                {isVoting ? "جارٍ التصويت..." : "صوّت الآن"}
-              </button>
-            </>
-          )}
-          {txHash && (
-            <p>
-              معاملة التصويت تم إرسالها:{" "}
-              <a
-                href={`https://sepolia.scrollscan.com/tx/${txHash}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                عرض على ScrollSepolia Explorer
-              </a>
-            </p>
-          )}
-        </>
+    <div className="p-4 max-w-md mx-auto">
+      <h2 className="text-xl font-bold mb-4">👑 انتخابات رئيس اتحاد الطلاب</h2>
+
+      {!isConnected ? (
+        <p className="text-red-500">من فضلك قم بتوصيل محفظتك</p>
+      ) : hasVoted ? (
+        <div>
+          <h3 className="mb-2">📊 لقد قمت بالتصويت! النتائج الحالية:</h3>
+          {results &&
+            results.map((votes, index) => (
+              <div key={index} className="mb-2">
+                <strong>{candidateNames[index]}:</strong>{" "}
+                {"█".repeat(Number(votes))} ({Number(votes)} صوت)
+              </div>
+            ))}
+        </div>
       ) : (
-        <p>يرجى توصيل محفظة MetaMask لبدء التصويت.</p>
+        <div>
+          <p className="mb-2">اختر أحد المرشحين:</p>
+          {candidateNames.map((name, idx) => (
+            <div key={idx}>
+              <input
+                type="radio"
+                name="candidate"
+                value={idx}
+                onChange={(e) => setSelectedCandidate(e.target.value)}
+              />{" "}
+              {name}
+            </div>
+          ))}
+
+          <button
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
+            onClick={handleVote}
+            disabled={isConfirming}
+          >
+            {isConfirming ? "جاري تأكيد التصويت..." : "✅ تأكيد التصويت"}
+          </button>
+        </div>
       )}
     </div>
   );
